@@ -1,4 +1,4 @@
-from model import TemporalGenerator, ImageGenerator, Discriminator_E, Discriminator_D
+from model import TemporalGenerator, ImageGenerator, Discriminator_E
 from loader import MovingMNIST
 
 import os
@@ -29,37 +29,44 @@ def to_gif(vs, name, how_many=2):
 
 if __name__ == '__main__':
     batch_size = 16
-    TG = TemporalGenerator().cuda()
-    IG = ImageGenerator(1).cuda()
-    DE = Discriminator_E(1).cuda()
-    DD = Discriminator_D(1).cuda()
+    G_TG = TemporalGenerator().cuda()
+    G_IG = ImageGenerator(1).cuda()
+    D_E = Discriminator_E(1).cuda()
+    D_TG = TemporalGenerator().cuda()
+    D_IG = ImageGenerator(1).cuda()
 
     def D(X):
-        X_recon = DD(DE(X))
+        DE = D_E(X)
+        DTG = D_TG(DE)
+        DIG = D_IG(DE, DTG)
+        X_recon = DIG
         return torch.mean(torch.sum(torch.abs(X - X_recon), 1))
 
     mm_dataset = MovingMNIST()
     start_epoch = 0
     lr = 1e-3
 
-    optim_TG = Adam(TG.parameters(), lr=lr)
-    optim_IG = Adam(IG.parameters(), lr=lr)
-    optim_DE = Adam(DE.parameters(), lr=lr)
-    optim_DD = Adam(DD.parameters(), lr=lr)
-    optims = [optim_TG, optim_IG, optim_DE, optim_DD]
+    optim_G_TG = Adam(G_TG.parameters(), lr=lr)
+    optim_G_IG = Adam(G_IG.parameters(), lr=lr)
+    optim_D_E = Adam(D_E.parameters(), lr=lr)
+    optim_D_TG = Adam(D_TG.parameters(), lr=lr)
+    optim_D_IG = Adam(D_IG.parameters(), lr=lr)
+    optims = [optim_G_TG, optim_G_IG, optim_D_E, optim_D_TG, optim_D_IG]
 
     if os.path.isfile('checkpoint.pth'):
         print("=> loading checkpoint")
         checkpoint = torch.load('checkpoint.pth')
         start_epoch = checkpoint['epoch']
-        TG.load_state_dict(checkpoint['TG'])
-        IG.load_state_dict(checkpoint['IG'])
-        DE.load_state_dict(checkpoint['DE'])
-        DD.load_state_dict(checkpoint['DD'])
-        optim_TG.load_state_dict(checkpoint['optim_TG'])
-        optim_IG.load_state_dict(checkpoint['optim_IG'])
-        optim_DE.load_state_dict(checkpoint['optim_DE'])
-        optim_DD.load_state_dict(checkpoint['optim_DD'])
+        G_TG.load_state_dict(checkpoint['G_TG'])
+        G_IG.load_state_dict(checkpoint['G_IG'])
+        D_E.load_state_dict(checkpoint['D_E'])
+        D_TG.load_state_dict(checkpoint['D_TG'])
+        D_IG.load_state_dict(checkpoint['D_IG'])
+        optim_G_TG.load_state_dict(checkpoint['optim_G_TG'])
+        optim_G_IG.load_state_dict(checkpoint['optim_G_IG'])
+        optim_D_E.load_state_dict(checkpoint['optim_D_E'])
+        optim_D_TG.load_state_dict(checkpoint['optim_D_TG'])
+        optim_D_IG.load_state_dict(checkpoint['optim_D_IG'])
 
     for epoch in range(start_epoch, 1000000):
 
@@ -75,29 +82,30 @@ if __name__ == '__main__':
             
             # Discriminator
             z0_D = Variable(torch.rand(batch_size, 100, 1).cuda())
-            z1_D = TG(z0_D)
-            Fake_D = IG(z0_D, z1_D)
+            z1_D = G_TG(z0_D)
+            Fake_D = G_IG(z0_D, z1_D)
             D_X = D(X)
             D_Fake_D = D(Fake_D)
 
             L_D = D_X - k * D_Fake_D
 
             L_D.backward()
-            optim_DE.step()
-            optim_DD.step()
+            optim_D_E.step()
+            optim_D_TG.step()
+            optim_D_IG.step()
             reset_grad(optims)
 
             # Generator
             z0_G = Variable(torch.rand(batch_size, 100, 1).cuda())
-            z1_G = TG(z0_G)
-            Fake_G = IG(z0_G, z1_G)
+            z1_G = G_TG(z0_G)
+            Fake_G = G_IG(z0_G, z1_G)
             D_Fake_G = D(Fake_G)
 
             L_G = D_Fake_G
 
             L_G.backward()
-            optim_TG.step()
-            optim_IG.step()
+            optim_G_TG.step()
+            optim_G_IG.step()
             reset_grad(optims)
 
             # Update k, the equlibrium
@@ -110,18 +118,20 @@ if __name__ == '__main__':
 
             if batch_idx % 100 == 0:
                 to_gif(Fake_G, 'fake_g')
-                to_gif(DD(DE(Fake_G)), 'fake_g_autoencoded')
+                to_gif(D_IG(D_E(Fake_G), D_TG(D_E(Fake_G))), 'fake_g_autoencoded')
                 to_gif(X, 'real')
-                to_gif(DD(DE(X)), 'real_autoencoded')
+                to_gif(D_IG(D_E(X), D_TG(D_E(X))), 'real_autoencoded')
 
         torch.save({
             'epoch': epoch,
-            'TG': TG.state_dict(),
-            'IG': IG.state_dict(),
-            'DE': DE.state_dict(),
-            'DD': DD.state_dict(),
-            'optim_TG': optim_TG.state_dict(),
-            'optim_IG': optim_IG.state_dict(),
-            'optim_DE': optim_DE.state_dict(),
-            'optim_DD': optim_DD.state_dict(),
+            'G_TG': G_TG.state_dict(),
+            'G_IG': G_IG.state_dict(),
+            'D_E': D_E.state_dict(),
+            'D_TG': D_TG.state_dict(),
+            'D_IG': D_IG.state_dict(),
+            'optim_G_TG': optim_G_TG.state_dict(),
+            'optim_G_IG': optim_G_IG.state_dict(),
+            'optim_D_E': optim_D_E.state_dict(),
+            'optim_D_TG': optim_D_TG.state_dict(),
+            'optim_D_IG': optim_D_IG.state_dict(),
         }, 'checkpoint.pth')
