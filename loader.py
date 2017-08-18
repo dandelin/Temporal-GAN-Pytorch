@@ -8,5 +8,7 @@ class MovingMNIST(Dataset):
         return self.data.shape[1]
     def __getitem__(self, index):
         ret = self.data[:16, index, :, :] # D x H x W
+        ret = ret.astype(np.float32)
+        ret = (ret / 255) * 2 - 1
         # C x D x H x W
-        return np.stack([ret] * 3)
+        return np.expand_dims(ret, axis=0)
