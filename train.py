@@ -1,5 +1,5 @@
 from model import TemporalGenerator, ImageGenerator, Discriminator_E
-from loader import MovingMNIST
+from loader import GIF
 
 import os
 
@@ -30,10 +30,10 @@ def to_gif(vs, name, how_many=2):
 if __name__ == '__main__':
     batch_size = 16
     G_TG = TemporalGenerator().cuda()
-    G_IG = ImageGenerator(1).cuda()
-    D_E = Discriminator_E(1).cuda()
+    G_IG = ImageGenerator(3).cuda()
+    D_E = Discriminator_E(3).cuda()
     D_TG = TemporalGenerator().cuda()
-    D_IG = ImageGenerator(1).cuda()
+    D_IG = ImageGenerator(3).cuda()
 
     def D(X):
         DE = D_E(X)
@@ -42,7 +42,7 @@ if __name__ == '__main__':
         X_recon = DIG
         return torch.mean(torch.sum(torch.abs(X - X_recon), 1))
 
-    mm_dataset = MovingMNIST()
+    mm_dataset = GIF()
     start_epoch = 0
     lr = 1e-3
 
@@ -79,7 +79,7 @@ if __name__ == '__main__':
         for batch_idx, data in enumerate(mm_loader):
             # Sample Data
             X = Variable(data.cuda())
-            
+
             # Discriminator
             z0_D = Variable(torch.rand(batch_size, 100, 1).cuda())
             z1_D = G_TG(z0_D)

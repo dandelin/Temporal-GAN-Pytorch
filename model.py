@@ -53,7 +53,7 @@ class ImageGenerator(nn.Module):
         self.bn4 = nn.BatchNorm2d(32)
         self.conv5 = nn.ConvTranspose2d(32, channel, 3, stride=1, padding=1)
         self.bn5 = nn.BatchNorm2d(channel)
-        
+
     def forward(self, z0, z1):
         z0_b, z0_c, z0_l = z0.size()
         z1_b, z1_c, z1_l = z1.size()

@@ -24,35 +24,36 @@ class GIF(Dataset):
         return len(self.paths)
     def __getitem__(self, index):
         path = self.paths[index]
-        gif = Image.open(path)
-        gif_iter = ImageSequence.Iterator(gif)
-        frames = list(gif_iter)
+        tensors = torch.zeros(16, 3, 64, 64)
+        try:
+            gif = Image.open(path)
+            gif_iter = ImageSequence.Iterator(gif)
+            gifs = [img.convert('RGB') for img in gif_iter]
 
-        f = lambda m, n: [i*n//m + n//(2*m) for i in range(m)]
-        indice = f(16, len(frames))
-        frames = [frames[i] for i in indice]
+            f = lambda m, n: [i*n//m + n//(2*m) for i in range(m)]
+            indice = f(16, len(gifs))
+            frames = [gifs[i] for i in indice]
 
-        tensors = []
-        for frame in frames:
-            image = frame.convert('RGB')
-            h, w = image.size
-            hpad = (max(h, w) - h) // 2
-            wpad = (max(h, w) - w) // 2
-            pad = (hpad, wpad, hpad, wpad)
-            transform = transforms.Compose([
-                transforms.Pad(pad),
-                transforms.Scale([64, 64]),
-                transforms.ToTensor()
-            ])
-            image_tensor = transform(image)
-            tensors.append(image_tensor)
-        tensors = torch.stack(tensors)
-        tensors = torch.transpose(tensors, 0, 1)
-        tensors = tensors * 2 - 1
+            for i, frame in enumerate(frames):
+                h, w = frame.size
+                hpad = (max(h, w) - h) // 2
+                wpad = (max(h, w) - w) // 2
+                pad = (hpad, wpad, hpad, wpad)
+                transform = transforms.Compose([
+                    transforms.Pad(pad),
+                    transforms.Scale([64, 64]),
+                    transforms.ToTensor()
+                ])
+                image_tensor = transform(frame)
+                tensors[i, :, :, :] = image_tensor
+            tensors = torch.transpose(tensors, 0, 1)
+            tensors = tensors * 2 - 1
+        except:
+            pass
         return tensors
 
 if __name__ == '__main__':
     dset = GIF()
     loader = DataLoader(dset, batch_size=2)
     for data in loader:
-        print(data)
+        pass
