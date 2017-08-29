@@ -46,10 +46,11 @@ class GIF(Dataset):
                 ])
                 image_tensor = transform(frame)
                 tensors[i, :, :, :] = image_tensor
-            tensors = torch.transpose(tensors, 0, 1)
             tensors = tensors * 2 - 1
         except:
+            print('Error Occured While opening image')
             pass
+        tensors = torch.transpose(tensors, 0, 1)
         return tensors
 
 if __name__ == '__main__':
